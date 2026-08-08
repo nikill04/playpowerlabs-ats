@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { postJSON } from "../api/apiClient.js";
 import { useApiResource } from "../api/useApiResource.js";
 import AppFrame from "../components/AppFrame.jsx";
 import Avatar from "../components/Avatar.jsx";
 import Badge from "../components/Badge.jsx";
 import PageState from "../components/PageState.jsx";
-import { SearchIcon } from "../components/icons.jsx";
+import { SearchIcon, UploadIcon } from "../components/icons.jsx";
 import "./Candidates.css";
 
 const STAGE_TONE = {
@@ -17,11 +18,21 @@ const STAGE_TONE = {
   rejected: "danger",
 };
 
+const CSV_TEMPLATE = "name,email,phone,location,current_title,current_company,source,job_code";
+const CSV_SAMPLE = `${CSV_TEMPLATE}\nJane Doe,jane@example.com,555-0100,Austin,Frontend Engineer,Acme,Referral,ENG-204`;
+
 export default function Candidates() {
   const navigate = useNavigate();
-  const { data, loading, error } = useApiResource("/candidates");
+  const [reloadKey, setReloadKey] = useState(0);
+  const { data, loading, error } = useApiResource(`/candidates${reloadKey ? `?v=${reloadKey}` : ""}`);
   const [query, setQuery] = useState("");
   const [stageFilter, setStageFilter] = useState("All");
+  const [importOpen, setImportOpen] = useState(false);
+  const [csvText, setCsvText] = useState("");
+  const [importFileName, setImportFileName] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState("");
+  const [importResult, setImportResult] = useState(null);
 
   const candidates = data?.candidates || [];
   const filters = data?.filters || [];
@@ -50,6 +61,51 @@ export default function Candidates() {
     [candidates, normalizedQuery, stageFilter]
   );
 
+  function openImport() {
+    setImportOpen(true);
+    setImportError("");
+    setImportResult(null);
+  }
+
+  async function handleFileChange(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImportFileName(file.name);
+    setImportError("");
+    setImportResult(null);
+    try {
+      setCsvText(await file.text());
+    } catch (err) {
+      setImportError("Couldn't read this CSV file.");
+    }
+  }
+
+  async function handleImportSubmit(event) {
+    event.preventDefault();
+    if (!csvText.trim()) {
+      setImportError("Choose a CSV file or paste CSV text.");
+      return;
+    }
+
+    setImporting(true);
+    setImportError("");
+    setImportResult(null);
+    try {
+      const result = await postJSON("/candidates/bulk-import", { csv: csvText });
+      setImportResult(result);
+      if (result.imported) {
+        setQuery("");
+        setStageFilter("All");
+        setReloadKey((key) => key + 1);
+      }
+    } catch (err) {
+      setImportError(err.message || "Couldn't import this CSV.");
+    } finally {
+      setImporting(false);
+    }
+  }
+
   return (
     <AppFrame title={data?.topTitle || "Candidates"} hasNotifications={data?.hasNotifications}>
       {loading && <PageState />}
@@ -64,15 +120,21 @@ export default function Candidates() {
               <h1>Candidates</h1>
               <p>{filteredCandidates.length} shown from {data.summary?.total || 0} applications</p>
             </div>
-            <label className="candidates-search">
-              <SearchIcon />
-              <input
-                type="search"
-                placeholder="Search candidates"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-            </label>
+            <div className="candidates-header__actions">
+              <label className="candidates-search">
+                <SearchIcon />
+                <input
+                  type="search"
+                  placeholder="Search candidates"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              </label>
+              <button type="button" className="candidates-import-button" onClick={openImport}>
+                <UploadIcon />
+                Import CSV
+              </button>
+            </div>
           </header>
 
           <section className="candidates-metrics">
@@ -152,6 +214,67 @@ export default function Candidates() {
               <div className="candidates-empty">No candidates match this view.</div>
             )}
           </section>
+
+          {importOpen && (
+            <div className="candidates-import" role="dialog" aria-modal="true" aria-labelledby="candidates-import-title">
+              <form className="candidates-import__modal" onSubmit={handleImportSubmit}>
+                <header className="candidates-import__header">
+                  <div>
+                    <h2 id="candidates-import-title">Import CSV</h2>
+                    <p>{CSV_TEMPLATE}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="candidates-import__close"
+                    onClick={() => setImportOpen(false)}
+                    disabled={importing}
+                    aria-label="Close import"
+                  >
+                    x
+                  </button>
+                </header>
+
+                <label className="candidates-import__file">
+                  <UploadIcon />
+                  <span>{importFileName || "Choose CSV file"}</span>
+                  <input type="file" accept=".csv,text/csv" onChange={handleFileChange} />
+                </label>
+
+                <textarea
+                  value={csvText}
+                  onChange={(event) => {
+                    setCsvText(event.target.value);
+                    setImportError("");
+                    setImportResult(null);
+                  }}
+                  placeholder={CSV_SAMPLE}
+                  spellCheck="false"
+                />
+
+                {importError && <div className="candidates-import__error">{importError}</div>}
+                {importResult && (
+                  <div className="candidates-import__result">
+                    <strong>{importResult.imported} imported</strong>
+                    {(importResult.errors || []).length > 0 && (
+                      <span>{importResult.errors.join(" ")}</span>
+                    )}
+                  </div>
+                )}
+
+                <footer className="candidates-import__actions">
+                  <button type="button" onClick={() => setCsvText(CSV_SAMPLE)} disabled={importing}>
+                    Template
+                  </button>
+                  <button type="button" onClick={() => setImportOpen(false)} disabled={importing}>
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={importing || !csvText.trim()}>
+                    {importing ? "Importing..." : "Import"}
+                  </button>
+                </footer>
+              </form>
+            </div>
+          )}
         </main>
       )}
     </AppFrame>

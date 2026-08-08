@@ -113,6 +113,16 @@ export function PlusIcon(props) {
   );
 }
 
+export function UploadIcon(props) {
+  return (
+    <svg {...base} width={16} height={16} {...props}>
+      <path d="M12 16V4" />
+      <path d="m7 9 5-5 5 5" />
+      <path d="M5 20h14" />
+    </svg>
+  );
+}
+
 export function LogoutIcon(props) {
   return (
     <svg {...base} width={16} height={16} {...props}>

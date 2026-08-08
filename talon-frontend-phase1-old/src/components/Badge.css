@@ -33,3 +33,8 @@
   background: #dbeafe;
   color: #1d4ed8;
 }
+
+.badge--danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
