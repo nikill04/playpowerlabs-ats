@@ -304,6 +304,7 @@ router.get('/sidebar', requireAuth, (req, res) => {
       jobs: db.prepare("SELECT COUNT(*) as c FROM jobs WHERE status != 'Closed'").get().c,
       pipeline: db.prepare("SELECT COUNT(*) as c FROM applications WHERE stage NOT IN ('Hired','Rejected')").get().c,
       reviewInbox: db.prepare("SELECT COUNT(*) as c FROM applications WHERE stage = 'Applied'").get().c,
+      candidates: db.prepare('SELECT COUNT(*) as c FROM candidates').get().c,
       scheduling: db.prepare("SELECT COUNT(*) as c FROM interviews WHERE status = 'Pending'").get().c,
       offers: db.prepare("SELECT COUNT(*) as c FROM offers WHERE status NOT IN ('Accepted','Declined')").get().c,
     },
@@ -311,7 +312,7 @@ router.get('/sidebar', requireAuth, (req, res) => {
       jobs: '/jobs',
       pipeline: firstJob ? `/pipeline/${firstJob.id}` : null,
       reviewInbox: '/review-inbox',
-      candidates: firstApp ? `/candidates/${firstApp.id}` : null,
+      candidates: '/candidates',
       scheduling: schedulingApp ? `/scheduling/${schedulingApp.id}` : null,
       offers: firstOffer ? `/offers/${firstOffer.id}` : null,
       reports: '/reports',
@@ -544,6 +545,62 @@ router.get('/review-inbox', requireAuth, (req, res) => {
     details,
     selected: details[0] || null,
     emptyMessage: 'No candidates are waiting for review.',
+  });
+});
+
+router.get('/candidates', requireAuth, (req, res) => {
+  const rows = db
+    .prepare(
+      `SELECT a.id as application_id, a.stage, a.stage_entered_at, a.rating,
+              c.id as candidate_id, c.name, c.email, c.location, c.current_title,
+              c.current_company, c.source, c.years_experience,
+              j.id as job_id, j.title as job_title, j.department,
+              r.name as recruiter_name
+       FROM applications a
+       JOIN candidates c ON c.id = a.candidate_id
+       JOIN jobs j ON j.id = a.job_id
+       LEFT JOIN users r ON r.id = a.recruiter_id
+       ORDER BY c.name ASC, a.id ASC`
+    )
+    .all();
+
+  const stageCounts = ['All', ...STAGES, 'Rejected'].map((stage) => ({
+    label: stage,
+    count:
+      stage === 'All'
+        ? rows.length
+        : rows.filter((row) => row.stage === stage).length,
+  }));
+
+  res.json({
+    topTitle: 'Candidates',
+    hasNotifications: true,
+    summary: {
+      total: rows.length,
+      active: rows.filter((row) => row.stage !== 'Hired' && row.stage !== 'Rejected').length,
+      onsite: rows.filter((row) => row.stage === 'Onsite').length,
+      offer: rows.filter((row) => row.stage === 'Offer').length,
+    },
+    filters: stageCounts,
+    candidates: rows.map((row) => ({
+      id: row.application_id,
+      candidateId: row.candidate_id,
+      initials: initials(row.name),
+      avatarColor: avatarColor(row.name),
+      name: row.name,
+      email: row.email || 'No email',
+      headline: `${row.current_title || 'Candidate'}${row.current_company ? ` at ${row.current_company}` : ''}`,
+      location: row.location || 'Location unknown',
+      source: row.source || 'Unknown',
+      jobTitle: row.job_title,
+      department: row.department,
+      recruiter: row.recruiter_name || 'Unassigned',
+      stage: row.stage,
+      stageKey: stageId(row.stage),
+      stageAgeLabel: `${daysSince(row.stage_entered_at)}d in stage`,
+      rating: row.rating ? Number(row.rating).toFixed(1) : null,
+      yearsExperience: row.years_experience || null,
+    })),
   });
 });
 

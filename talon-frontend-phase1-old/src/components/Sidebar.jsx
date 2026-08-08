@@ -112,6 +112,7 @@ export default function Sidebar() {
             to={links.candidates}
             icon={UserIcon}
             label="Candidates"
+            count={counts.candidates}
           />
         </div>
 

@@ -10,6 +10,7 @@ import AuthCallback from "./pages/AuthCallback.jsx";
 import Jobs from "./pages/Jobs.jsx";
 import Pipeline from "./pages/Pipeline.jsx";
 import ReviewInbox from "./pages/ReviewInbox.jsx";
+import Candidates from "./pages/Candidates.jsx";
 import CandidateDetail from "./pages/CandidateDetail.jsx";
 import Scheduling from "./pages/Scheduling.jsx";
 import OfferDetail from "./pages/OfferDetail.jsx";
@@ -40,6 +41,7 @@ const router = createBrowserRouter([
           { path: "jobs/new", element: <NewJob /> },
           { path: "pipeline/:jobId", element: <Pipeline /> },
           { path: "review-inbox", element: <ReviewInbox /> },
+          { path: "candidates", element: <Candidates /> },
           { path: "candidates/:id", element: <CandidateDetail /> },
           { path: "scheduling/:appId", element: <Scheduling /> },
           { path: "offers/:id", element: <OfferDetail /> },
