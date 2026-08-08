@@ -1,0 +1,11 @@
+services:
+  talon-backend:
+    build:
+      context: ./talon-backend-phase1-old/server
+    env_file:
+      - ./talon-backend-phase1-old/server/.env
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: "4000"
+      FRONTEND_URL: "http://localhost:5173"

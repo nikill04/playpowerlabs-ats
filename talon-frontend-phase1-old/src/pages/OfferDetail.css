@@ -1,0 +1,260 @@
+.offer-page {
+  padding: 18px 28px 56px;
+}
+
+.offer-page__header {
+  height: 32px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 629px;
+}
+
+.offer-page__title-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.offer-page__title-row h1 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+
+.offer-page__header > span {
+  color: #6b6872;
+  font-size: 13px;
+}
+
+.offer-status {
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 13px;
+}
+
+.offer-status--warning {
+  background: #fff1d9;
+  color: #b45309;
+}
+
+.offer-status--success {
+  background: #dff3e7;
+  color: #15803d;
+}
+
+.offer-layout {
+  display: grid;
+  grid-template-columns: minmax(520px, 630px) minmax(480px, 640px);
+  gap: 22px;
+  align-items: start;
+}
+
+.offer-left {
+  display: grid;
+  gap: 16px;
+}
+
+.offer-card,
+.offer-letter,
+.offer-approval-row {
+  border: 1px solid #ded8cf;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(17, 24, 39, 0.06);
+}
+
+.offer-summary-card {
+  padding: 10px 20px 20px;
+}
+
+.offer-summary-row {
+  min-height: 48px;
+  border-bottom: 1px solid #e6e1da;
+  display: grid;
+  grid-template-columns: 165px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.offer-summary-row span {
+  color: #57545e;
+  font-size: 14px;
+}
+
+.offer-summary-row strong {
+  font-size: 16px;
+}
+
+.offer-summary-row em {
+  border-radius: 6px;
+  background: #dff3e7;
+  color: #15803d;
+  padding: 3px 10px;
+  font-style: normal;
+  font-size: 12px;
+}
+
+.offer-summary-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.offer-button {
+  height: 36px;
+  border: 1px solid #d8d2ca;
+  border-radius: 8px;
+  background: #fff;
+  color: #57545e;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.offer-button--primary {
+  background: #4f55cf;
+  color: #fff;
+  border-color: #4f55cf;
+}
+
+.offer-button:disabled,
+.offer-approval-decision:disabled {
+  opacity: 0.62;
+  cursor: default;
+}
+
+.offer-action-error {
+  margin-top: 12px;
+  color: #dc2626;
+  font-size: 13px;
+}
+
+.offer-section-label {
+  margin: 2px 0 -4px;
+  color: #57545e;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.offer-approval-list {
+  display: grid;
+  gap: 13px;
+}
+
+.offer-approval-row {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 16px;
+}
+
+.offer-approval-row__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.offer-approval-row__dot--success {
+  background: #268a5a;
+}
+
+.offer-approval-row__dot--warning {
+  background: #b76b00;
+}
+
+.offer-approval-row__dot--neutral {
+  background: #6b6872;
+}
+
+.offer-approval-row div {
+  min-width: 0;
+  flex: 1;
+}
+
+.offer-approval-row strong {
+  font-size: 14px;
+}
+
+.offer-approval-row p {
+  margin: 2px 0 0;
+  color: #57545e;
+  font-size: 13px;
+}
+
+.offer-approval-row__status {
+  font-style: normal;
+  font-size: 13px;
+}
+
+.offer-approval-row__status--success {
+  color: #15803d;
+}
+
+.offer-approval-row__status--warning {
+  color: #b45309;
+}
+
+.offer-approval-row__status--neutral {
+  color: #6b6872;
+}
+
+.offer-approval-row__actions {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.offer-approval-decision {
+  height: 30px;
+  border-radius: 7px;
+  padding: 0 10px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.offer-approval-decision--approve {
+  border: 1px solid #9bd6b4;
+  color: #15803d;
+}
+
+.offer-approval-decision--reject {
+  border: 1px solid #f1b5b5;
+  color: #dc2626;
+}
+
+.offer-letter {
+  min-height: 434px;
+  padding: 40px 42px;
+}
+
+.offer-letter h2 {
+  margin: 0 0 28px;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+
+.offer-letter p {
+  margin: 0 0 26px;
+  color: #17151d;
+  font-size: 15px;
+  line-height: 1.62;
+}
+
+.offer-letter strong {
+  font-weight: 800;
+}
+
+.offer-letter__closing {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+  color: #17151d;
+  font-size: 15px;
+}

@@ -1,0 +1,13 @@
+Pipeline (Kanban): stage-by-stage candidate tracking with conversion/time metrics
+Candidate profile: unified activity, emails, interviews, scorecards, files
+Review inbox: resume triage with signal scoring and advance/reject shortcuts
+Offers: offer builder with multi-step approval chain and letter preview
+Job management: job list by department plus a new-job creation wizard
+Reports: hiring KPIs, funnel conversion, and interview volume trends
+Global search/nav: Cmd+K search, notifications, sectioned sidebar
+Sign-in/Sign up with 2FA. Google or any open source.
+Full FE + BE with DB integration
+Bulk add/import:  import/CSV/bulk-action capability.
+Real calendar sync: scheduling grid
+Terraform/CF infra stack/CDK: infra-as-code for one-click setup
+E2E test suite: automate user flows using playwright

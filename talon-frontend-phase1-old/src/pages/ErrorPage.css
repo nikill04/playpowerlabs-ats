@@ -1,0 +1,133 @@
+.error-page {
+  min-height: 100vh;
+  width: 100%;
+  background: #f7f6f2;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+.error-page__surface {
+  width: min(100%, 560px);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 16px 40px rgba(17, 24, 39, 0.08);
+  padding: 32px;
+}
+
+.error-page__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #111827;
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 32px;
+}
+
+.error-page__mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #eeedfc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.error-page__status {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.error-page h1 {
+  font-size: 30px;
+  line-height: 1.16;
+  font-weight: 800;
+  margin: 0 0 12px;
+  color: #111827;
+}
+
+.error-page p {
+  color: #6b7280;
+  font-size: 15px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.error-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.error-page__button {
+  min-height: 40px;
+  padding: 10px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #374151;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.error-page__button:hover {
+  background: #f9fafb;
+}
+
+.error-page__button--primary {
+  border-color: #4f46e5;
+  background: #4f46e5;
+  color: #ffffff;
+}
+
+.error-page__button--primary:hover {
+  background: #4338ca;
+}
+
+.error-page__details {
+  max-height: 220px;
+  overflow: auto;
+  margin: 26px 0 0;
+  padding: 14px;
+  border-radius: 8px;
+  background: #111827;
+  color: #f9fafb;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 640px) {
+  .error-page {
+    align-items: stretch;
+    padding: 16px;
+  }
+
+  .error-page__surface {
+    padding: 24px;
+  }
+
+  .error-page h1 {
+    font-size: 24px;
+  }
+
+  .error-page__button {
+    width: 100%;
+  }
+}

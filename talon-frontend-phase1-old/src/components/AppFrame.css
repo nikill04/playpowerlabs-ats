@@ -1,0 +1,15 @@
+.app-frame {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background: #f5f3ef;
+}
+
+.app-frame__main {
+  flex: 1;
+  min-width: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f5f3ef;
+}

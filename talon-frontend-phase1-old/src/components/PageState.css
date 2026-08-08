@@ -1,0 +1,37 @@
+.page-state {
+  padding: 32px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.page-state--error {
+  color: #dc2626;
+}
+
+.page-state__skeleton {
+  height: 64px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #efeeea 25%, #f8f7f4 37%, #efeeea 63%);
+  background-size: 400% 100%;
+  animation: page-state-shimmer 1.4s ease infinite;
+  margin-bottom: 14px;
+  max-width: 720px;
+}
+
+.page-state__skeleton--wide {
+  max-width: 100%;
+}
+
+.page-state__skeleton--short {
+  max-width: 520px;
+}
+
+@keyframes page-state-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0 50%;
+  }
+}
