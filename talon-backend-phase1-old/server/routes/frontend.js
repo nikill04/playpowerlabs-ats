@@ -125,6 +125,15 @@ function formatTime(date) {
   return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(date);
 }
 
+function scheduleValue(date) {
+  const pad = (value) => String(value).padStart(2, '0');
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+  ].join('-') + `T${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
+}
+
 function stageId(stage) {
   return stage.toLowerCase().replace(/\s+/g, '-');
 }
@@ -726,10 +735,13 @@ router.get('/scheduling/:appId', requireAuth, async (req, res) => {
   const availabilityByInterviewer = new Map(availability.map((item) => [item.interviewer_id, item]));
 
   const columns = rounds.map((round) => ({
-    id: round.interviewer_id || `round-${round.id}`,
+    id: round.id,
+    roundId: round.id,
+    interviewerId: round.interviewer_id,
     initials: initials(round.interviewer_name || round.round_name),
     avatarColor: avatarColor(round.interviewer_name || round.round_name, round.avatar_color),
     name: round.interviewer_name || 'Unassigned',
+    roundName: round.round_name,
   }));
 
   const rows = [];
@@ -739,33 +751,50 @@ router.get('/scheduling/:appId', requireAuth, async (req, res) => {
   for (let index = 0; index <= 14; index++) {
     const slotStart = new Date(gridStart.getTime() + index * 30 * 60000);
     const slotEnd = new Date(slotStart.getTime() + 30 * 60000);
+    const slotStartValue = scheduleValue(slotStart);
+    const slotLabel = formatTime(slotStart);
 
     rows.push({
+      slotStart: slotStartValue,
       timeLabel: slotStart.getMinutes() === 0 ? formatTime(slotStart).replace(':00', ':00') : '',
       cells: rounds.map((round) => {
-        const columnId = round.interviewer_id || `round-${round.id}`;
+        const columnId = round.id;
+        const baseCell = {
+          columnId,
+          roundId: round.id,
+          roundName: round.round_name,
+          roundStatus: round.status,
+          slotStart: slotStartValue,
+          slotLabel,
+          canSchedule: round.status === 'Pending',
+        };
         const scheduledStart = round.scheduled_at ? new Date(round.scheduled_at) : null;
         const scheduledEnd = scheduledStart ? new Date(scheduledStart.getTime() + round.duration_minutes * 60000) : null;
         if (scheduledStart && overlaps(slotStart, slotEnd, scheduledStart, scheduledEnd)) {
-          return { columnId, type: 'selected', label: round.round_name };
+          return { ...baseCell, type: 'selected', label: round.round_name, canSchedule: false };
         }
 
         const availabilityItem = round.interviewer_id ? availabilityByInterviewer.get(round.interviewer_id) : null;
         const busy = availabilityItem?.busy_blocks?.some((block) =>
           overlaps(slotStart, slotEnd, new Date(block.start), new Date(block.end))
         );
-        if (busy) return { columnId, type: 'busy', label: 'Busy' };
-        return { columnId, type: 'empty' };
+        if (busy) return { ...baseCell, type: 'busy', label: 'Busy', canSchedule: false };
+        return { ...baseCell, type: 'empty' };
       }),
     });
   }
 
   const pendingCount = rounds.filter((round) => round.status === 'Pending').length;
-  const firstInviteTime = rounds.find((round) => round.scheduled_at)?.scheduled_at;
+  const unscheduledPendingCount = rounds.filter((round) => round.status === 'Pending' && !round.scheduled_at).length;
+  const scheduledPendingRounds = rounds.filter((round) => round.status === 'Pending' && round.scheduled_at);
+  const firstInviteTime = scheduledPendingRounds[0]?.scheduled_at;
   const currentUser = db
     .prepare('SELECT google_refresh_token IS NOT NULL as has_calendar FROM users WHERE id = ?')
     .get(req.user.id);
   const hasCalendar = Boolean(currentUser?.has_calendar);
+  const interviewers = db
+    .prepare("SELECT id, name, role, avatar_color FROM users WHERE role IN ('recruiter','hiring_manager','interviewer') ORDER BY name")
+    .all();
 
   res.json({
     topTitle: `${candidate.name} / Schedule onsite loop`,
@@ -779,19 +808,35 @@ router.get('/scheduling/:appId', requireAuth, async (req, res) => {
     roundsLabel: `Loop, ${rounds.length} rounds`,
     rounds: rounds.map((round) => ({
       id: round.id,
+      roundName: round.round_name,
       initials: initials(round.interviewer_name || round.round_name),
       avatarColor: avatarColor(round.interviewer_name || round.round_name, round.avatar_color),
       name: round.interviewer_name || 'Unassigned',
-      detail: `${round.round_name}, ${round.duration_minutes || 45} min`,
+      detail: `${round.round_name}, ${round.duration_minutes || 45} min${
+        round.scheduled_at ? ` at ${formatTime(new Date(round.scheduled_at))}` : ''
+      }`,
+      scheduledAt: round.scheduled_at,
+      durationMinutes: round.duration_minutes || 45,
       status: round.status,
       statusTone: round.status === 'Confirmed' || round.status === 'Completed' ? 'success' : 'warning',
     })),
-    warning: pendingCount ? `${pendingCount} round${pendingCount === 1 ? '' : 's'} still need confirmation.` : null,
+    warning: unscheduledPendingCount
+      ? `${unscheduledPendingCount} pending round${unscheduledPendingCount === 1 ? '' : 's'} need a time.`
+      : pendingCount
+        ? `${pendingCount} round${pendingCount === 1 ? '' : 's'} ready for invites.`
+        : null,
     actions: {
       secondary: hasCalendar ? 'Google Calendar connected' : 'Connect Google Calendar',
       secondaryUrl: hasCalendar ? null : '/auth/google/calendar/start',
-      primary: firstInviteTime ? `Send invites, ${formatTime(new Date(firstInviteTime))}` : 'Send invites',
+      primary: pendingCount ? (firstInviteTime ? `Send invites, ${formatTime(new Date(firstInviteTime))}` : 'Send invites') : null,
     },
+    interviewers: interviewers.map((user) => ({
+      id: user.id,
+      name: user.name,
+      role: roleLabel(user.role),
+      initials: initials(user.name),
+      avatarColor: avatarColor(user.name, user.avatar_color),
+    })),
     calendar: {
       dateLabel: formatDayLabel(selectedDate),
       modes: [{ label: 'Day', active: true }, { label: 'Week' }],

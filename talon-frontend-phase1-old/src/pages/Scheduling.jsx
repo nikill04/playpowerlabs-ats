@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { postJSON } from "../api/apiClient.js";
+import { patchJSON, postJSON } from "../api/apiClient.js";
 import { API_BASE_URL } from "../api/config.js";
 import { useApiResource } from "../api/useApiResource.js";
 import AppFrame from "../components/AppFrame.jsx";
@@ -8,17 +8,33 @@ import Avatar from "../components/Avatar.jsx";
 import PageState from "../components/PageState.jsx";
 import "./Scheduling.css";
 
+const EMPTY_ROUND_FORM = {
+  roundName: "",
+  interviewerId: "",
+  durationMinutes: "45",
+};
+
+const ROUND_NAME_OPTIONS = ["Coding", "System design", "Values", "Hiring manager", "Portfolio review"];
+
 export default function Scheduling() {
   const { appId } = useParams();
   const [reloadKey, setReloadKey] = useState(0);
   const [sendingInvites, setSendingInvites] = useState(false);
   const [sendError, setSendError] = useState(null);
   const [calendarMode, setCalendarMode] = useState("Day");
+  const [selectedRoundId, setSelectedRoundId] = useState(null);
+  const [schedulingRoundId, setSchedulingRoundId] = useState(null);
+  const [showRoundForm, setShowRoundForm] = useState(false);
+  const [roundForm, setRoundForm] = useState(EMPTY_ROUND_FORM);
+  const [addingRound, setAddingRound] = useState(false);
   const { data, loading, error } = useApiResource(`/scheduling/${appId}${reloadKey ? `?v=${reloadKey}` : ""}`);
 
   const candidate = data?.candidate;
   const rounds = data?.rounds || [];
   const pendingRounds = rounds.filter((round) => round.id && round.status === "Pending");
+  const invitableRounds = pendingRounds.filter((round) => round.scheduledAt);
+  const selectedRound = pendingRounds.find((round) => round.id === selectedRoundId) || null;
+  const interviewers = data?.interviewers || [];
   const columns = data?.calendar?.columns || [];
   const rows = data?.calendar?.rows || [];
   const confirmedRounds = rounds.filter((round) => round.status === "Confirmed" || round.status === "Completed");
@@ -29,21 +45,100 @@ export default function Scheduling() {
   const gridStyle = {
     gridTemplateColumns: `68px repeat(${Math.max(columns.length, 1)}, minmax(180px, 1fr))`,
   };
+  const showAddRoundForm = showRoundForm || rounds.length === 0;
+
+  useEffect(() => {
+    if (!data) return;
+    const currentPendingRounds = (data.rounds || []).filter((round) => round.id && round.status === "Pending");
+    if (!currentPendingRounds.length) {
+      if (selectedRoundId !== null) setSelectedRoundId(null);
+      return;
+    }
+    if (!currentPendingRounds.some((round) => round.id === selectedRoundId)) {
+      setSelectedRoundId(currentPendingRounds[0].id);
+    }
+  }, [data, selectedRoundId]);
+
+  useEffect(() => {
+    const currentInterviewers = data?.interviewers || [];
+    if (!currentInterviewers.length || roundForm.interviewerId) return;
+    setRoundForm((current) => ({
+      ...current,
+      interviewerId: String(currentInterviewers[0].id),
+    }));
+  }, [data, roundForm.interviewerId]);
 
   async function handleSendInvites() {
-    if (sendingInvites || pendingRounds.length === 0) return;
+    if (sendingInvites) return;
+    if (invitableRounds.length === 0) {
+      setSendError(pendingRounds.length ? "Pick a time before sending invites." : null);
+      return;
+    }
 
     setSendingInvites(true);
     setSendError(null);
     try {
       await Promise.all(
-        pendingRounds.map((round) => postJSON(`/interviews/${round.id}/send-invites`))
+        invitableRounds.map((round) => postJSON(`/interviews/${round.id}/send-invites`))
       );
       setReloadKey((key) => key + 1);
     } catch (err) {
       setSendError(err.message || "Couldn't send invites.");
     } finally {
       setSendingInvites(false);
+    }
+  }
+
+  async function handleScheduleCell(cell) {
+    if (!cell?.canSchedule || cell.roundId !== selectedRoundId || schedulingRoundId) return;
+
+    setSchedulingRoundId(cell.roundId);
+    setSendError(null);
+    try {
+      await patchJSON(`/interviews/${cell.roundId}`, {
+        scheduled_at: cell.slotStart,
+      });
+      setReloadKey((key) => key + 1);
+    } catch (err) {
+      setSendError(err.message || "Couldn't schedule this interview.");
+    } finally {
+      setSchedulingRoundId(null);
+    }
+  }
+
+  async function handleAddRound(event) {
+    event.preventDefault();
+    const roundName = roundForm.roundName.trim();
+    const interviewerId = Number(roundForm.interviewerId);
+    const durationMinutes = Number(roundForm.durationMinutes);
+    if (!roundName) {
+      setSendError("Round name is required.");
+      return;
+    }
+    if (!interviewerId) {
+      setSendError("Choose an interviewer.");
+      return;
+    }
+
+    setAddingRound(true);
+    setSendError(null);
+    try {
+      const created = await postJSON(`/applications/${appId}/interviews`, {
+        round_name: roundName,
+        interviewer_id: interviewerId,
+        duration_minutes: durationMinutes,
+      });
+      setRoundForm({
+        ...EMPTY_ROUND_FORM,
+        interviewerId: String(interviewerId),
+      });
+      setSelectedRoundId(created.id);
+      setShowRoundForm(false);
+      setReloadKey((key) => key + 1);
+    } catch (err) {
+      setSendError(err.message || "Couldn't add interview round.");
+    } finally {
+      setAddingRound(false);
     }
   }
 
@@ -92,22 +187,103 @@ export default function Scheduling() {
 
             <div className="schedule-rounds">
               {rounds.map((round) => (
-                <div className="schedule-round" key={round.id || round.name}>
+                <button
+                  type="button"
+                  className={`schedule-round${round.id === selectedRoundId ? " schedule-round--active" : ""}${
+                    round.status === "Pending" ? " schedule-round--selectable" : ""
+                  }`}
+                  key={round.id || round.name}
+                  disabled={round.status !== "Pending"}
+                  onClick={() => setSelectedRoundId(round.id)}
+                >
                   <Avatar
                     initials={round.initials}
                     color={round.avatarColor}
                     size={34}
                   />
-                  <div className="schedule-round__text">
+                  <span className="schedule-round__text">
                     <strong>{round.name}</strong>
                     <span>{round.detail}</span>
-                  </div>
+                  </span>
                   <em className={`schedule-round__status schedule-round__status--${round.statusTone || "neutral"}`}>
                     {round.status}
                   </em>
-                </div>
+                </button>
               ))}
             </div>
+
+            {showAddRoundForm && (
+              <form className="schedule-add-round" onSubmit={handleAddRound}>
+                <input
+                  type="text"
+                  list="schedule-round-names"
+                  placeholder="Round name"
+                  aria-label="Round name"
+                  value={roundForm.roundName}
+                  onChange={(event) =>
+                    setRoundForm((current) => ({ ...current, roundName: event.target.value }))
+                  }
+                />
+                <datalist id="schedule-round-names">
+                  {ROUND_NAME_OPTIONS.map((name) => (
+                    <option value={name} key={name} />
+                  ))}
+                </datalist>
+                <select
+                  aria-label="Interviewer"
+                  value={roundForm.interviewerId}
+                  onChange={(event) =>
+                    setRoundForm((current) => ({ ...current, interviewerId: event.target.value }))
+                  }
+                >
+                  <option value="" disabled>Interviewer</option>
+                  {interviewers.map((interviewer) => (
+                    <option value={interviewer.id} key={interviewer.id}>
+                      {interviewer.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  aria-label="Duration"
+                  value={roundForm.durationMinutes}
+                  onChange={(event) =>
+                    setRoundForm((current) => ({ ...current, durationMinutes: event.target.value }))
+                  }
+                >
+                  <option value="30">30 min</option>
+                  <option value="45">45 min</option>
+                  <option value="60">60 min</option>
+                  <option value="90">90 min</option>
+                </select>
+                <div className="schedule-add-round__actions">
+                  {rounds.length > 0 && (
+                    <button type="button" onClick={() => setShowRoundForm(false)}>
+                      Cancel
+                    </button>
+                  )}
+                  <button type="submit" disabled={addingRound}>
+                    {addingRound ? "Adding..." : "Add round"}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {!showAddRoundForm && (
+              <button
+                type="button"
+                className="schedule-add-round-toggle"
+                onClick={() => setShowRoundForm(true)}
+              >
+                Add round
+              </button>
+            )}
+
+            {selectedRound && (
+              <div className="schedule-selection">
+                <strong>{selectedRound.roundName}</strong>
+                <span>{selectedRound.scheduledAt ? "Scheduled" : "Pending"}</span>
+              </div>
+            )}
 
             {data.warning && <div className="schedule-warning">{data.warning}</div>}
             {sendError && <div className="schedule-error">{sendError}</div>}
@@ -127,7 +303,7 @@ export default function Scheduling() {
                 <button
                   type="button"
                   className="schedule-button schedule-button--primary"
-                  disabled={sendingInvites || pendingRounds.length === 0}
+                  disabled={sendingInvites || invitableRounds.length === 0}
                   onClick={handleSendInvites}
                 >
                   {sendingInvites ? "Sending..." : data.actions.primary}
@@ -164,7 +340,11 @@ export default function Scheduling() {
               </div>
             </div>
 
-            {calendarMode === "Day" ? (
+            {columns.length === 0 ? (
+              <section className="schedule-empty-shell">
+                <h2>No rounds yet</h2>
+              </section>
+            ) : calendarMode === "Day" ? (
               <section className="schedule-grid-shell">
                 <div className="schedule-grid schedule-grid--header" style={gridStyle}>
                   <div className="schedule-grid__corner" />
@@ -175,22 +355,38 @@ export default function Scheduling() {
                         color={column.avatarColor}
                         size={28}
                       />
-                      <strong>{column.name}</strong>
+                      <span>
+                        <strong>{column.name}</strong>
+                        <small>{column.roundName}</small>
+                      </span>
                     </div>
                   ))}
                 </div>
 
                 <div className="schedule-grid schedule-grid--body" style={gridStyle}>
                   {rows.map((row) => (
-                    <div className="schedule-grid__row" key={row.timeLabel}>
+                    <div className="schedule-grid__row" key={row.slotStart || row.timeLabel}>
                       <div className="schedule-time">{row.timeLabel}</div>
                       {(row.cells || []).map((cell, index) => (
-                        <div
-                          className={`schedule-cell schedule-cell--${cell.type || "empty"}`}
-                          key={`${row.timeLabel}-${cell.columnId || index}`}
+                        <button
+                          type="button"
+                          className={`schedule-cell schedule-cell--${cell.type || "empty"}${
+                            cell.canSchedule && cell.roundId === selectedRoundId ? " schedule-cell--action" : ""
+                          }`}
+                          key={`${row.slotStart || row.timeLabel}-${cell.columnId || index}`}
+                          disabled={!cell.canSchedule || cell.roundId !== selectedRoundId || Boolean(schedulingRoundId)}
+                          onClick={() => handleScheduleCell(cell)}
+                          aria-label={
+                            cell.canSchedule && cell.roundId === selectedRoundId
+                              ? `Schedule ${cell.roundName} at ${cell.slotLabel}`
+                              : undefined
+                          }
                         >
                           {cell.label && <span>{cell.label}</span>}
-                        </div>
+                          {!cell.label && cell.canSchedule && cell.roundId === selectedRoundId && (
+                            <span>Pick</span>
+                          )}
+                        </button>
                       ))}
                     </div>
                   ))}
