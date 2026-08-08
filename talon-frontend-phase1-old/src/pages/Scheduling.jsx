@@ -47,8 +47,20 @@ export default function Scheduling() {
     }
   }
 
-  function handleSecondaryAction() {
+  async function handleSecondaryAction() {
     if (!data?.actions?.secondaryUrl) return;
+    if (data.actions.secondaryUrl.endsWith("/start")) {
+      setSendError(null);
+      try {
+        const result = await postJSON(data.actions.secondaryUrl, {
+          return_to: window.location.pathname,
+        });
+        window.location.href = result.url;
+      } catch (err) {
+        setSendError(err.message || "Couldn't connect Google Calendar.");
+      }
+      return;
+    }
     window.location.href = `${API_BASE_URL}${data.actions.secondaryUrl}`;
   }
 

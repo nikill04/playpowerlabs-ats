@@ -23,7 +23,7 @@ export default function AuthCallback() {
 
     if (token) {
       setAuthToken(token);
-      navigate("/jobs", { replace: true });
+      navigate(params.get("next") || "/jobs", { replace: true });
       return;
     }
 

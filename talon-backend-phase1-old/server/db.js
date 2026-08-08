@@ -6,7 +6,8 @@ const fs = require('fs');
 const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
 
-const DB_PATH = path.join(__dirname, 'talon.db');
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'talon.db');
+fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 const isNew = !fs.existsSync(DB_PATH);
 
 const db = new Database(DB_PATH);

@@ -789,7 +789,7 @@ router.get('/scheduling/:appId', requireAuth, async (req, res) => {
     warning: pendingCount ? `${pendingCount} round${pendingCount === 1 ? '' : 's'} still need confirmation.` : null,
     actions: {
       secondary: hasCalendar ? 'Google Calendar connected' : 'Connect Google Calendar',
-      secondaryUrl: hasCalendar ? null : '/auth/google/calendar',
+      secondaryUrl: hasCalendar ? null : '/auth/google/calendar/start',
       primary: firstInviteTime ? `Send invites, ${formatTime(new Date(firstInviteTime))}` : 'Send invites',
     },
     calendar: {

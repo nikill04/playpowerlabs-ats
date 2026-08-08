@@ -9,3 +9,6 @@ services:
     environment:
       PORT: "4000"
       FRONTEND_URL: "http://localhost:5173"
+      DB_PATH: "/app/data/talon.db"
+    volumes:
+      - ./talon-backend-phase1-old/server/data:/app/data

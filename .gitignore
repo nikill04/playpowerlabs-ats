@@ -8,6 +8,7 @@ node_modules/
 *.sqlite
 talon.db
 talon.db-*
+talon-backend-phase1-old/server/data/
 
 # build and cache output
 dist/

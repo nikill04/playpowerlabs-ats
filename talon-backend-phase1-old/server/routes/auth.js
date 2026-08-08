@@ -31,6 +31,41 @@ function redirectAuthError(res, message) {
   return res.redirect(`${frontendUrl}/auth/callback#error=${encodeURIComponent(message)}`);
 }
 
+function callbackRedirect(res, frontendUrl, params) {
+  return res.redirect(`${frontendUrl}/auth/callback#${new URLSearchParams(params).toString()}`);
+}
+
+function safeReturnTo(value) {
+  if (typeof value !== 'string') return '/jobs';
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//') || /[\r\n]/.test(trimmed)) return '/jobs';
+  return trimmed;
+}
+
+function calendarAuthUrl(state) {
+  return googleClient.generateAuthUrl({
+    access_type: 'offline',
+    include_granted_scopes: true,
+    prompt: 'consent',
+    scope: CALENDAR_SCOPES,
+    state,
+  });
+}
+
+function parseCalendarState(rawState) {
+  if (!rawState || rawState === 'calendar') return null;
+  try {
+    const state = jwt.verify(String(rawState), JWT_SECRET);
+    if (state.purpose !== 'google_calendar' || !state.user_id) return null;
+    return {
+      userId: state.user_id,
+      returnTo: safeReturnTo(state.return_to),
+    };
+  } catch (err) {
+    throw new Error('Calendar connection expired. Start again from Scheduling.');
+  }
+}
+
 // Shared "did login succeed, now what" logic used by both password login
 // and Google login: if the account has 2FA on, hand back a pending token
 // that only works against /2fa/verify. Otherwise hand back a full token.
@@ -88,14 +123,23 @@ router.get('/google', (req, res) => {
 router.get('/google/calendar', (req, res) => {
   if (!googleConfigured()) return redirectAuthError(res, 'Google OAuth is not configured on the server');
 
-  const url = googleClient.generateAuthUrl({
-    access_type: 'offline',
-    include_granted_scopes: true,
-    prompt: 'consent',
-    scope: CALENDAR_SCOPES,
-    state: 'calendar',
-  });
-  res.redirect(url);
+  res.redirect(calendarAuthUrl('calendar'));
+});
+
+router.post('/google/calendar/start', requireAuth, (req, res) => {
+  if (!googleConfigured()) return res.status(503).json({ error: 'Google OAuth is not configured on the server' });
+
+  const state = jwt.sign(
+    {
+      purpose: 'google_calendar',
+      user_id: req.user.id,
+      return_to: safeReturnTo(req.body?.return_to),
+    },
+    JWT_SECRET,
+    { expiresIn: '10m' }
+  );
+
+  res.json({ url: calendarAuthUrl(state) });
 });
 
 // GET /auth/google/callback — Google redirects here with ?code=...
@@ -108,11 +152,42 @@ router.get('/google/callback', async (req, res) => {
     if (!code) throw new Error('Missing authorization code');
 
     const { tokens } = await googleClient.getToken(code);
+    if (!tokens.id_token) throw new Error('Google did not return an identity token');
     const ticket = await googleClient.verifyIdToken({
       idToken: tokens.id_token,
       audience: process.env.GOOGLE_CLIENT_ID,
     });
     const payload = ticket.getPayload(); // { sub, email, name, ... }
+
+    const calendarState = parseCalendarState(req.query.state);
+    if (calendarState) {
+      const row = db.prepare('SELECT * FROM users WHERE id = ?').get(calendarState.userId);
+      if (!row) throw new Error('Talon session expired. Sign in again, then connect Google Calendar.');
+
+      const linked = db.prepare('SELECT id FROM users WHERE google_id = ? AND id != ?').get(payload.sub, row.id);
+      if (linked) throw new Error('This Google account is already linked to another Talon user.');
+
+      if (!tokens.refresh_token && !row.google_refresh_token) {
+        throw new Error('Google did not return calendar access. Try connecting Google Calendar again.');
+      }
+
+      if (tokens.refresh_token) {
+        db.prepare('UPDATE users SET google_id = ?, google_refresh_token = ? WHERE id = ?').run(
+          payload.sub,
+          tokens.refresh_token,
+          row.id
+        );
+      } else if (!row.google_id) {
+        db.prepare('UPDATE users SET google_id = ? WHERE id = ?').run(payload.sub, row.id);
+      }
+
+      const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(row.id);
+      const user = { id: updated.id, name: updated.name, email: updated.email, role: updated.role };
+      return callbackRedirect(res, frontendUrl, {
+        token: signToken(user),
+        next: calendarState.returnTo,
+      });
+    }
 
     let row = db.prepare('SELECT * FROM users WHERE google_id = ? OR email = ?').get(payload.sub, payload.email);
 
@@ -140,9 +215,12 @@ router.get('/google/callback', async (req, res) => {
     // token in the URL fragment (not query string, so it never hits server logs).
     const user = { id: row.id, name: row.name, email: row.email, role: row.role };
     if (row.totp_enabled) {
-      return res.redirect(`${frontendUrl}/auth/callback#pending_token=${signPendingToken(user)}&requires_2fa=true`);
+      return callbackRedirect(res, frontendUrl, {
+        pending_token: signPendingToken(user),
+        requires_2fa: 'true',
+      });
     }
-    return res.redirect(`${frontendUrl}/auth/callback#token=${signToken(user)}`);
+    return callbackRedirect(res, frontendUrl, { token: signToken(user) });
   } catch (err) {
     return res.redirect(`${frontendUrl}/auth/callback#error=${encodeURIComponent(err.message)}`);
   }

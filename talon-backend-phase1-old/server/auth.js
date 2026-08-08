@@ -31,7 +31,10 @@ function requireAuth(req, res, next) {
     if (payload.stage === 'pending_2fa') {
       return res.status(401).json({ error: '2FA verification required' });
     }
-    req.user = payload;
+    const db = require('./db');
+    const row = db.prepare('SELECT id, email, role FROM users WHERE id = ?').get(payload.id);
+    if (!row) return res.status(401).json({ error: 'Invalid or expired token' });
+    req.user = { ...payload, email: row.email, role: row.role };
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Invalid or expired token' });
