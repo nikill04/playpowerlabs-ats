@@ -10,7 +10,18 @@ const router = express.Router();
 router.get('/search', requireAuth, (req, res) => {
   const q = `%${req.query.q || ''}%`;
   const jobs = db.prepare('SELECT id, title, code FROM jobs WHERE title LIKE ? LIMIT 5').all(q);
-  const candidates = db.prepare('SELECT id, name FROM candidates WHERE name LIKE ? LIMIT 5').all(q);
+  const candidates = db
+    .prepare(
+      `SELECT c.id, c.name, c.current_title, c.current_company,
+              a.id as application_id, j.title as job_title
+       FROM candidates c
+       LEFT JOIN applications a ON a.candidate_id = c.id
+       LEFT JOIN jobs j ON j.id = a.job_id
+       WHERE c.name LIKE ?
+       ORDER BY c.name, a.id
+       LIMIT 5`
+    )
+    .all(q);
   res.json({ jobs, candidates });
 });
 

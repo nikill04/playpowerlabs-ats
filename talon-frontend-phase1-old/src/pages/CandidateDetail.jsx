@@ -26,12 +26,15 @@ export default function CandidateDetail() {
   const [noteText, setNoteText] = useState("");
   const [pendingAction, setPendingAction] = useState("");
   const [actionError, setActionError] = useState(null);
+  const [activeTab, setActiveTab] = useState("Activity");
   const { data, loading, error } = useApiResource(`/candidates/${id}${reloadKey ? `?v=${reloadKey}` : ""}`);
 
   const candidate = data?.candidate;
   const tabs = data?.tabs || [];
   const stages = data?.stages || [];
   const activity = data?.activity || [];
+  const scorecards = data?.scorecards || [];
+  const interviews = data?.interviews || [];
   const sidebarSections = data?.sidebarSections || [];
   const applicationId = candidate?.applicationId || id;
   const currentStage = stages.find((stage) => stage.active)?.label;
@@ -41,6 +44,7 @@ export default function CandidateDetail() {
     setNoteText("");
     setPendingAction("");
     setActionError(null);
+    setActiveTab("Activity");
   }, [id]);
 
   function openScheduling() {
@@ -178,9 +182,10 @@ export default function CandidateDetail() {
                   <button
                     type="button"
                     className={`candidate-tab${
-                      tab.active ? " candidate-tab--active" : ""
+                      activeTab === tab.label ? " candidate-tab--active" : ""
                     }`}
                     key={tab.label}
+                    onClick={() => setActiveTab(tab.label)}
                   >
                     {tab.label}
                     {typeof tab.count === "number" && <span>{tab.count}</span>}
@@ -224,20 +229,63 @@ export default function CandidateDetail() {
                 </div>
               )}
 
-              <div className="candidate-timeline">
-                {activity.map((item) => (
-                  <article className="candidate-activity" key={item.id || item.title}>
-                    <span className={`candidate-activity__dot candidate-activity__dot--${item.tone || "neutral"}`} />
-                    <div className="candidate-activity__card">
+              {(activeTab === "Activity" || activeTab === "Emails") && (
+                <div className="candidate-timeline">
+                  {activity
+                    .filter((item) => activeTab !== "Emails" || item.type === "email")
+                    .map((item) => (
+                      <article className="candidate-activity" key={item.id || item.title}>
+                        <span className={`candidate-activity__dot candidate-activity__dot--${item.tone || "neutral"}`} />
+                        <div className="candidate-activity__card">
+                          <div>
+                            <h2>{item.title}</h2>
+                            <p>{item.body}</p>
+                          </div>
+                          <time>{item.timeLabel}</time>
+                        </div>
+                      </article>
+                    ))}
+                  {activity.filter((item) => activeTab !== "Emails" || item.type === "email").length === 0 && (
+                    <div className="candidate-empty-panel">No items in this view.</div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === "Scorecards" && (
+                <div className="candidate-tab-panel">
+                  {scorecards.map((scorecard) => (
+                    <article className="candidate-info-card" key={scorecard.id}>
                       <div>
-                        <h2>{item.title}</h2>
-                        <p>{item.body}</p>
+                        <h2>{scorecard.roundName}</h2>
+                        <p>{scorecard.interviewerName}</p>
                       </div>
-                      <time>{item.timeLabel}</time>
-                    </div>
-                  </article>
-                ))}
-              </div>
+                      <strong>
+                        {scorecard.rating || "-"} / {scorecard.maxRating || 4}
+                      </strong>
+                      {scorecard.recommendation && <em>{scorecard.recommendation}</em>}
+                      {scorecard.notes && <p>{scorecard.notes}</p>}
+                    </article>
+                  ))}
+                  {scorecards.length === 0 && <div className="candidate-empty-panel">No scorecards yet.</div>}
+                </div>
+              )}
+
+              {activeTab === "Interviews" && (
+                <div className="candidate-tab-panel">
+                  {interviews.map((interview) => (
+                    <article className="candidate-info-card" key={interview.id}>
+                      <div>
+                        <h2>{interview.roundName}</h2>
+                        <p>{interview.interviewerName}</p>
+                      </div>
+                      <strong>{interview.status}</strong>
+                      <em>{interview.durationMinutes || 45} min</em>
+                      <p>{interview.scheduledAt || "Not scheduled"}</p>
+                    </article>
+                  ))}
+                  {interviews.length === 0 && <div className="candidate-empty-panel">No interviews yet.</div>}
+                </div>
+              )}
             </section>
           </main>
 

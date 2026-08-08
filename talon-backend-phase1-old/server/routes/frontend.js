@@ -365,9 +365,11 @@ router.get('/pipeline/:jobId', requireAuth, (req, res) => {
   const manager = db.prepare('SELECT id, name FROM users WHERE id = ?').get(job.hiring_manager_id);
   const apps = db
     .prepare(
-      `SELECT a.*, c.name as candidate_name, c.current_title, c.current_company, c.source
+      `SELECT a.*, c.name as candidate_name, c.current_title, c.current_company, c.source,
+              r.name as recruiter_name
        FROM applications a
        JOIN candidates c ON c.id = a.candidate_id
+       LEFT JOIN users r ON r.id = a.recruiter_id
        WHERE a.job_id = ? AND a.stage != 'Rejected'
        ORDER BY a.stage_entered_at ASC`
     )
@@ -397,6 +399,9 @@ router.get('/pipeline/:jobId', requireAuth, (req, res) => {
           name: app.candidate_name,
           headline: `${app.current_title || 'Candidate'} at ${app.current_company || 'Unknown'}`,
           tags: [app.source].filter(Boolean),
+          stage,
+          source: app.source || '',
+          recruiter: app.recruiter_name || 'Unassigned',
           rating: app.rating ? Number(app.rating).toFixed(1) : null,
           meta: [
             { label: `${daysSince(app.stage_entered_at)}d in stage` },
@@ -411,7 +416,14 @@ router.get('/pipeline/:jobId', requireAuth, (req, res) => {
     topTitle: `Jobs / ${job.title}`,
     hasNotifications: true,
     job: {
+      id: job.id,
       title: job.title,
+      department: job.department,
+      location: job.location,
+      status: job.status,
+      bandMin: job.band_min,
+      bandMax: job.band_max,
+      ownerName: manager?.name || null,
       statusLabel: statusLabel(job.status),
       statusTone: statusTone(job.status),
       metaItems: [job.code, job.location, manager?.name].filter(Boolean),
@@ -587,6 +599,7 @@ router.get('/candidates/:id', requireAuth, (req, res) => {
     noteBox: { placeholder: 'Log a note, @ to mention', buttonLabel: 'Add note' },
     activity: activity.map((item) => ({
       id: item.id,
+      type: item.type,
       title: item.title,
       body: item.message,
       timeLabel: timeAgo(item.created_at),
@@ -597,7 +610,24 @@ router.get('/candidates/:id', requireAuth, (req, res) => {
             ? 'success'
             : item.type === 'schedule'
               ? 'warning'
-              : 'neutral',
+        : 'neutral',
+    })),
+    interviews: interviews.map((interview) => ({
+      id: interview.id,
+      roundName: interview.round_name,
+      interviewerName: interview.interviewer_name || 'Unassigned',
+      scheduledAt: interview.scheduled_at,
+      durationMinutes: interview.duration_minutes,
+      status: interview.status,
+    })),
+    scorecards: scorecards.map((scorecard) => ({
+      id: scorecard.id,
+      roundName: scorecard.round_name,
+      interviewerName: scorecard.interviewer_name || 'Unassigned',
+      rating: scorecard.rating,
+      maxRating: scorecard.max_rating,
+      recommendation: scorecard.recommendation,
+      notes: scorecard.notes,
     })),
     sidebarSections: [
       {

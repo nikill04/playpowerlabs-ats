@@ -296,10 +296,14 @@
 }
 
 .forgot-link {
+  border: 0;
+  background: transparent;
+  padding: 0;
   font-size: 13px;
   font-weight: 500;
   color: #4f46e5;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .forgot-link:hover {

@@ -97,6 +97,8 @@ export default function NewJob() {
                   type="button"
                   className={`new-job-step${step.active ? " new-job-step--active" : ""}`}
                   key={step.label}
+                  disabled={!step.active}
+                  aria-current={step.active ? "step" : undefined}
                 >
                   <span>{step.number}</span>
                   {step.label}
@@ -197,7 +199,11 @@ export default function NewJob() {
 
             <div className="new-job-actions">
               {data.actions?.back && (
-                <button type="button" className="new-job-nav-button">
+                <button
+                  type="button"
+                  className="new-job-nav-button"
+                  onClick={() => navigate("/jobs")}
+                >
                   {formatActionLabel(data.actions.back)}
                 </button>
               )}

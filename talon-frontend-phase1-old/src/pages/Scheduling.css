@@ -327,3 +327,73 @@
   color: #15803d;
   font-weight: 700;
 }
+
+.schedule-week-shell {
+  margin-top: 0;
+  border: 1px solid #ded8cf;
+  border-radius: 10px;
+  background: #fff;
+  min-height: 620px;
+  padding: 18px;
+}
+
+.schedule-week-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.schedule-week-metrics article {
+  border: 1px solid #e6e1da;
+  border-radius: 8px;
+  background: #fbfaf8;
+  padding: 14px;
+  display: grid;
+  gap: 5px;
+}
+
+.schedule-week-metrics span {
+  color: #6b6872;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.schedule-week-metrics strong {
+  color: #15131b;
+  font-size: 24px;
+}
+
+.schedule-week-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.schedule-week-row {
+  min-height: 54px;
+  border: 1px solid #e6e1da;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+}
+
+.schedule-week-row span {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.schedule-week-row strong {
+  color: #15131b;
+  font-size: 14px;
+}
+
+.schedule-week-row small {
+  color: #6b6872;
+  font-size: 13px;
+}

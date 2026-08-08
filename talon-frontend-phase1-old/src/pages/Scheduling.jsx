@@ -13,6 +13,7 @@ export default function Scheduling() {
   const [reloadKey, setReloadKey] = useState(0);
   const [sendingInvites, setSendingInvites] = useState(false);
   const [sendError, setSendError] = useState(null);
+  const [calendarMode, setCalendarMode] = useState("Day");
   const { data, loading, error } = useApiResource(`/scheduling/${appId}${reloadKey ? `?v=${reloadKey}` : ""}`);
 
   const candidate = data?.candidate;
@@ -20,6 +21,11 @@ export default function Scheduling() {
   const pendingRounds = rounds.filter((round) => round.id && round.status === "Pending");
   const columns = data?.calendar?.columns || [];
   const rows = data?.calendar?.rows || [];
+  const confirmedRounds = rounds.filter((round) => round.status === "Confirmed" || round.status === "Completed");
+  const busyCells = rows.reduce(
+    (count, row) => count + (row.cells || []).filter((cell) => cell.type === "busy").length,
+    0
+  );
   const gridStyle = {
     gridTemplateColumns: `68px repeat(${Math.max(columns.length, 1)}, minmax(180px, 1fr))`,
   };
@@ -126,8 +132,9 @@ export default function Scheduling() {
                   {(data.calendar?.modes || []).map((mode) => (
                     <button
                       type="button"
-                      className={mode.active ? "schedule-mode schedule-mode--active" : "schedule-mode"}
+                      className={calendarMode === mode.label ? "schedule-mode schedule-mode--active" : "schedule-mode"}
                       key={mode.label}
+                      onClick={() => setCalendarMode(mode.label)}
                     >
                       {mode.label}
                     </button>
@@ -145,37 +152,70 @@ export default function Scheduling() {
               </div>
             </div>
 
-            <section className="schedule-grid-shell">
-              <div className="schedule-grid schedule-grid--header" style={gridStyle}>
-                <div className="schedule-grid__corner" />
-                {columns.map((column) => (
-                  <div className="schedule-person" key={column.id || column.name}>
-                    <Avatar
-                      initials={column.initials}
-                      color={column.avatarColor}
-                      size={28}
-                    />
-                    <strong>{column.name}</strong>
-                  </div>
-                ))}
-              </div>
+            {calendarMode === "Day" ? (
+              <section className="schedule-grid-shell">
+                <div className="schedule-grid schedule-grid--header" style={gridStyle}>
+                  <div className="schedule-grid__corner" />
+                  {columns.map((column) => (
+                    <div className="schedule-person" key={column.id || column.name}>
+                      <Avatar
+                        initials={column.initials}
+                        color={column.avatarColor}
+                        size={28}
+                      />
+                      <strong>{column.name}</strong>
+                    </div>
+                  ))}
+                </div>
 
-              <div className="schedule-grid schedule-grid--body" style={gridStyle}>
-                {rows.map((row) => (
-                  <div className="schedule-grid__row" key={row.timeLabel}>
-                    <div className="schedule-time">{row.timeLabel}</div>
-                    {(row.cells || []).map((cell, index) => (
-                      <div
-                        className={`schedule-cell schedule-cell--${cell.type || "empty"}`}
-                        key={`${row.timeLabel}-${cell.columnId || index}`}
-                      >
-                        {cell.label && <span>{cell.label}</span>}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </section>
+                <div className="schedule-grid schedule-grid--body" style={gridStyle}>
+                  {rows.map((row) => (
+                    <div className="schedule-grid__row" key={row.timeLabel}>
+                      <div className="schedule-time">{row.timeLabel}</div>
+                      {(row.cells || []).map((cell, index) => (
+                        <div
+                          className={`schedule-cell schedule-cell--${cell.type || "empty"}`}
+                          key={`${row.timeLabel}-${cell.columnId || index}`}
+                        >
+                          {cell.label && <span>{cell.label}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : (
+              <section className="schedule-week-shell">
+                <div className="schedule-week-metrics">
+                  <article>
+                    <span>Rounds</span>
+                    <strong>{rounds.length}</strong>
+                  </article>
+                  <article>
+                    <span>Confirmed</span>
+                    <strong>{confirmedRounds.length}</strong>
+                  </article>
+                  <article>
+                    <span>Busy blocks</span>
+                    <strong>{busyCells}</strong>
+                  </article>
+                </div>
+                <div className="schedule-week-list">
+                  {rounds.map((round) => (
+                    <div className="schedule-week-row" key={round.id || round.name}>
+                      <Avatar initials={round.initials} color={round.avatarColor} size={30} />
+                      <span>
+                        <strong>{round.name}</strong>
+                        <small>{round.detail}</small>
+                      </span>
+                      <em className={`schedule-round__status schedule-round__status--${round.statusTone || "neutral"}`}>
+                        {round.status}
+                      </em>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
           </main>
         </div>
       )}

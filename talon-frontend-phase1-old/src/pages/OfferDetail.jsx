@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { postJSON } from "../api/apiClient.js";
 import { useApiResource } from "../api/useApiResource.js";
@@ -19,24 +19,23 @@ function RichText({ paragraph }) {
 
 export default function OfferDetail() {
   const { id } = useParams();
+  const letterRef = useRef(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [pendingAction, setPendingAction] = useState("");
   const [actionError, setActionError] = useState(null);
+  const [showResponseActions, setShowResponseActions] = useState(false);
   const { data, loading, error } = useApiResource(`/offers/${id}${reloadKey ? `?v=${reloadKey}` : ""}`);
 
   const offer = data?.offer;
   const rows = offer?.rows || [];
   const approvalChain = offer?.approvalChain || [];
   const letter = offer?.letter;
-  const canSendForApproval =
-    offer?.statusLabel === "Draft" || offer?.actions?.primary === "Send for approval";
-
   function refreshOffer() {
     setReloadKey((key) => key + 1);
   }
 
   async function handleSendForApproval() {
-    if (!canSendForApproval || pendingAction) return;
+    if (pendingAction) return;
 
     setPendingAction("send-for-approval");
     setActionError(null);
@@ -48,6 +47,59 @@ export default function OfferDetail() {
     } finally {
       setPendingAction("");
     }
+  }
+
+  async function handleSendOffer() {
+    if (pendingAction) return;
+
+    setPendingAction("send-offer");
+    setActionError(null);
+    try {
+      await postJSON(`/offers/${id}/send`);
+      refreshOffer();
+    } catch (err) {
+      setActionError(err.message || "Couldn't send this offer.");
+    } finally {
+      setPendingAction("");
+    }
+  }
+
+  async function handleRecordResponse(status) {
+    if (pendingAction) return;
+
+    setPendingAction(`response:${status}`);
+    setActionError(null);
+    try {
+      await postJSON(`/offers/${id}/respond`, { status });
+      setShowResponseActions(false);
+      refreshOffer();
+    } catch (err) {
+      setActionError(err.message || "Couldn't record this response.");
+    } finally {
+      setPendingAction("");
+    }
+  }
+
+  function handlePrimaryAction() {
+    const action = offer?.actions?.primary;
+    if (action === "Send for approval") {
+      handleSendForApproval();
+      return;
+    }
+    if (action === "Send offer") {
+      handleSendOffer();
+      return;
+    }
+    if (action === "Record response") {
+      setShowResponseActions((open) => !open);
+      setActionError(null);
+      return;
+    }
+    setActionError("This offer is waiting on pending approvers.");
+  }
+
+  function handlePreviewLetter() {
+    letterRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   async function handleApprovalDecision(approvalId, status) {
@@ -102,18 +154,38 @@ export default function OfferDetail() {
                     <button
                       type="button"
                       className="offer-button offer-button--primary"
-                      disabled={Boolean(pendingAction) || !canSendForApproval}
-                      onClick={handleSendForApproval}
+                      disabled={Boolean(pendingAction)}
+                      onClick={handlePrimaryAction}
                     >
                       {offer.actions.primary}
                     </button>
                   )}
                   {offer.actions?.secondary && (
-                    <button type="button" className="offer-button">
+                    <button type="button" className="offer-button" onClick={handlePreviewLetter}>
                       {offer.actions.secondary}
                     </button>
                   )}
                 </div>
+                {showResponseActions && (
+                  <div className="offer-response-actions">
+                    <button
+                      type="button"
+                      className="offer-response-actions__accept"
+                      disabled={Boolean(pendingAction)}
+                      onClick={() => handleRecordResponse("Accepted")}
+                    >
+                      Accepted
+                    </button>
+                    <button
+                      type="button"
+                      className="offer-response-actions__decline"
+                      disabled={Boolean(pendingAction)}
+                      onClick={() => handleRecordResponse("Declined")}
+                    >
+                      Declined
+                    </button>
+                  </div>
+                )}
                 {actionError && <div className="offer-action-error">{actionError}</div>}
               </div>
 
@@ -158,7 +230,7 @@ export default function OfferDetail() {
             </section>
 
             {letter && (
-              <section className="offer-letter">
+              <section className="offer-letter" ref={letterRef}>
                 <h2>{letter.title}</h2>
                 {(letter.paragraphs || []).map((paragraph, index) => (
                   <p key={index}>

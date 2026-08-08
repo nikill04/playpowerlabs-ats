@@ -70,6 +70,10 @@ export default function Login() {
   }
 
   function handleOAuth(provider) {
+    if (provider === "saml") {
+      setFormError("SAML SSO is not configured for this local workspace.");
+      return;
+    }
     window.location.href = `${API_BASE_URL}/auth/${provider}`;
   }
 
@@ -268,9 +272,13 @@ export default function Login() {
                   <label className="field-label" htmlFor="password">
                     Password
                   </label>
-                  <a href="#forgot" className="forgot-link">
+                  <button
+                    type="button"
+                    className="forgot-link"
+                    onClick={() => setFormError("Password reset is not configured for this local workspace.")}
+                  >
                     Forgot?
-                  </a>
+                  </button>
                 </div>
                 <input
                   id="password"
